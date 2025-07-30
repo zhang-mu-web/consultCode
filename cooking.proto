@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package cooking;
+
+// 做菜咨询服务
+service CookingAdvisor {
+  // 获取做菜建议
+  rpc GetCookingAdvice (CookingRequest) returns (CookingResponse) {}
+  
+  // 流式获取做菜建议
+  rpc GetCookingAdviceStream (CookingRequest) returns (stream CookingResponse) {}
+}
+
+// 请求消息
+message CookingRequest {
+  string query = 1;                    // 用户查询
+  int32 start = 2;                     // 开始标志 (1表示第一轮，0表示后续轮次)
+  repeated ConversationItem conversation_history = 3;  // 对话历史
+  map<string, string> extracted_data = 4;  // 已提取的信息
+}
+
+// 对话项
+message ConversationItem {
+  string role = 1;      // "user" 或 "assistant"
+  string content = 2;   // 对话内容
+}
+
+// 响应消息
+message CookingResponse {
+  string phase_response = 1;           // 阶段性回复
+  map<string, string> extracted_info = 2;  // 提取的信息
+  string status = 3;                   // 状态信息
+} 

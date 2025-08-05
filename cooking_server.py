@@ -1,60 +1,70 @@
-import json
-import os
-import grpc
-from concurrent import futures
-import jinja2
-import requests
+#!/usr/bin/env python3
+"""
+做菜咨询gRPC服务器
+提供智能做菜指导服务
+"""
 
-# 导入生成的gRPC代码
+import grpc
+import json
+import requests
+import jinja2
+import os
+from concurrent import futures
+from user_manager import get_user_manager
 import cooking_pb2
 import cooking_pb2_grpc
 
-# 导入用户管理系统
-from user_manager import get_user_manager
-from info_extractor import get_info_extractor
-
 # 火山引擎豆包API配置
-ARK_API_KEY = "0c0d41dc-5c1a-4c25-b5be-012b8e01c153"
 ARK_ENDPOINT = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
-os.environ["ARK_API_KEY"] = ARK_API_KEY
-ARK_BASE_URL = 'https://ark.cn-beijing.volces.com/api/v3'
+
+# 从环境变量或配置文件获取API密钥
+def get_ark_api_key():
+    """获取API密钥"""
+    # 优先从环境变量获取
+    api_key = os.environ.get("ARK_API_KEY")
+    if api_key:
+        return api_key
+    
+    # 从配置文件获取
+    try:
+        with open('cooking_config.json', 'r', encoding='utf-8') as f:
+            config = json.load(f)
+            return config.get('ark_api_key', '')
+    except:
+        return ''
+
+ARK_API_KEY = get_ark_api_key()
 
 # 移除咨询阶段相关逻辑
 
 def build_dynamic_prompt(conversation_history, extracted_data, start, user_id=None):
-    """构建动态提示"""
-    # 加载配置文件
-    with open('cooking_config.json', 'r', encoding='utf-8') as f:
-        config = json.load(f)
-    
-    # 加载prompt模板
+    """构建动态提示词"""
+    # 读取提示词模板
     with open('cooking_prompt.txt', 'r', encoding='utf-8') as f:
         template_content = f.read()
     
-    # 准备对话历史
-    history_text = "\n".join([
-        f"[{item['role']} {i + 1}]: {item['content']}"
-        for i, item in enumerate(conversation_history[-6:])
-    ])
+    # 构建对话历史文本
+    history_text = ""
+    for item in conversation_history:
+        history_text += f"{item['content']}\n"
     
-    # 整理已获取的信息
-    extracted_info = ''
-    for i, k in enumerate(list(extracted_data.keys())):
-        extracted_info += f'信息{i+1}:' + k + ':' + extracted_data[k] + '\n'
+    # 构建提取信息文本
+    extracted_info = ""
+    if extracted_data:
+        for key, value in extracted_data.items():
+            if key != '回复':
+                extracted_info += f"{key}: {value}\n"
     
     # 添加用户上下文信息
     user_context = ""
     if user_id:
         user_manager = get_user_manager()
-        info_extractor = get_info_extractor()
-        user_context_data = info_extractor.get_user_context_for_prompt(user_id)
+        user_context_data = user_manager.get_user_context_for_prompt(user_id)
         
         if user_context_data:
             user_context = "### 用户上下文信息:\n"
             if user_context_data.get("current_dish"):
                 user_context += f"- 当前菜品: {user_context_data['current_dish']}\n"
-            if user_context_data.get("confirmed_ingredients"):
-                user_context += f"- 已确认食材: {json.dumps(user_context_data['confirmed_ingredients'], ensure_ascii=False)}\n"
             if user_context_data.get("taste_preferences"):
                 user_context += f"- 口味偏好: {', '.join(user_context_data['taste_preferences'])}\n"
             if user_context_data.get("cooking_level"):
@@ -150,12 +160,11 @@ class CookingAdvisorServicer(cooking_pb2_grpc.CookingAdvisorServicer):
     def GetCookingAdvice(self, request, context):
         """获取做菜建议"""
         try:
-            # 获取或创建用户ID（从请求中提取或生成）
-            user_id = self._get_user_id_from_request(request)
+            # 获取用户ID - 直接使用请求中的user_id字段
+            user_id = request.user_id
             
             # 获取用户管理器
             user_manager = get_user_manager()
-            info_extractor = get_info_extractor()
             
             # 确保用户存在
             if not user_manager.get_user(user_id):
@@ -173,21 +182,12 @@ class CookingAdvisorServicer(cooking_pb2_grpc.CookingAdvisorServicer):
             # 转换提取数据格式
             extracted_data = dict(request.extracted_data)
             
-            # 从用户输入中提取信息并更新用户属性
+            # 简单提取菜品信息并更新用户状态
             print(f"处理用户输入: {request.query}")
-            extracted_info = info_extractor.extract_all_info(request.query, user_id)
-            
-            # 打印提取的信息
-            if extracted_info["ingredients"]:
-                print(f"提取的食材: {extracted_info['ingredients']}")
-            if extracted_info["taste_preferences"]:
-                print(f"提取的口味: {extracted_info['taste_preferences']}")
-            if extracted_info["cooking_level"]:
-                print(f"提取的烹饪水平: {extracted_info['cooking_level']}")
-            if extracted_info["equipment"]:
-                print(f"提取的厨具: {extracted_info['equipment']}")
-            if extracted_info["allergies"]:
-                print(f"提取的过敏原: {extracted_info['allergies']}")
+            dish_name = user_manager.extract_dish_from_text(request.query)
+            if dish_name:
+                user_manager.set_current_dish(user_id, dish_name)
+                print(f"识别菜品: {dish_name}")
             
             # 构建动态提示（包含用户上下文）
             dynamic_prompt = build_dynamic_prompt(
@@ -204,6 +204,23 @@ class CookingAdvisorServicer(cooking_pb2_grpc.CookingAdvisorServicer):
             try:
                 response_data = json.loads(ai_response)
                 reply = response_data.get('回复', '')
+                
+                # 检查是否是完成菜品的状态
+                current_state = response_data.get('当前状态', '')
+                if current_state == '结束关怀':
+                    # 用户完成了一道菜，更新状态
+                    # 尝试从对话历史中提取菜品名称
+                    completed_dish = ""
+                    if conversation_history:
+                        # 从最近的对话中寻找菜品名称
+                        for item in reversed(conversation_history[-5:]):  # 检查最近5条对话
+                            if item['role'] == 'user':
+                                dish_name = user_manager.extract_dish_from_text(item['content'])
+                                if dish_name:
+                                    completed_dish = dish_name
+                                    break
+                    
+                    user_manager.complete_dish(user_id, completed_dish)
                 
                 # 提取其他信息
                 extracted_info = {}
@@ -233,26 +250,7 @@ class CookingAdvisorServicer(cooking_pb2_grpc.CookingAdvisorServicer):
                 status="error"
             )
     
-    def _get_user_id_from_request(self, request) -> str:
-        """从请求中获取用户ID"""
-        # 方法1: 从查询中提取用户ID
-        if request.query and len(request.query) > 10:
-            # 简单的用户ID提取逻辑
-            words = request.query.split()
-            for word in words:
-                if len(word) > 8 and word.isalnum():
-                    return word
-        
-        # 方法2: 从对话历史中提取
-        for item in request.conversation_history:
-            if "用户ID" in item.content:
-                # 提取用户ID的逻辑
-                pass
-        
-        # 方法3: 生成默认用户ID
-        import hashlib
-        user_hash = hashlib.md5(request.query.encode()).hexdigest()[:8]
-        return f"user_{user_hash}"
+
     
     def _print_user_stats(self, user_id: str):
         """打印用户统计信息"""
@@ -265,11 +263,8 @@ class CookingAdvisorServicer(cooking_pb2_grpc.CookingAdvisorServicer):
                 print(f"烹饪水平: {user_data['profile']['cooking_level']}")
                 print(f"口味偏好: {user_data['profile']['preferences']['taste']}")
                 print(f"过敏原: {user_data['profile']['allergies']}")
-                print(f"厨具: {user_data['profile']['kitchen_equipment']}")
-                print(f"用餐人数: {user_data['profile']['family_size']}")
-                print(f"当前菜品: {user_data['current_session']['dish']}")
-                print(f"已确认食材: {user_data['current_session']['confirmed_ingredients']}")
-                print(f"食材库存: {len(user_data['ingredient_inventory'])} 种")
+                print(f"已学会的菜品: {user_data.get('learned_dishes', [])}")
+                print(f"当前正在做的菜: {user_data['current_session']['dish']}")
                 print("=" * 40)
         except Exception as e:
             print(f"打印用户统计信息失败: {e}")
@@ -278,6 +273,7 @@ def serve():
     """启动gRPC服务器"""
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     cooking_pb2_grpc.add_CookingAdvisorServicer_to_server(
+        # 创建一个 CookingAdvisorServicer 的实例，并将其添加到 grpc 服务器中
         CookingAdvisorServicer(), server
     )
     

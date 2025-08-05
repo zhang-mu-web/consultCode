@@ -16,6 +16,8 @@
 - **Redis持久化**: 用户数据24小时持久化存储
 - **实时统计**: 多用户统计分析和监控
 - **个性化推荐**: 基于用户属性的个性化建议
+- **用餐人数管理**: 根据用餐人数智能调整食材分量
+- **优化数据结构**: 精简冗余字段，提高存储效率和一致性
 
 ## 系统架构
 
@@ -23,13 +25,46 @@
 cooking.proto          # gRPC服务定义
 cooking_server.py      # 服务端实现（集成用户管理）
 cooking_client.py      # 客户端实现
-user_manager.py        # 用户属性管理系统
-info_extractor.py      # 信息提取器
-user_stats.py          # 用户统计监控
+user_manager.py        # 用户属性管理系统（已优化）
+migrate_data.py        # 数据迁移脚本
 cooking_prompt.txt     # AI提示模板
 cooking_config.json    # 系统配置文件
 requirements.txt       # 依赖包
 ```
+
+## 数据结构优化
+
+### 优化前的问题
+- **冗余字段**: `ingredient_inventory` 等存储相同信息
+- **无意义字段**: `profile.name`、`cooking_history` 等在烹饪指导中无实际价值
+- **过度设计**: `cooking_steps`、`current_step` 等字段增加复杂性但使用价值低
+- **存储浪费**: 约40%的字段是冗余或无意义的
+
+### 优化后的结构
+```json
+{
+  "user_id": "用户唯一标识",
+  "created_at": "创建时间",
+  "last_active": "最后活跃时间",
+  "profile": {
+    "cooking_level": "烹饪水平",
+    "preferences": {
+      "taste": ["口味偏好"]
+    },
+    "allergies": ["过敏原"]
+  },
+  "current_session": {
+    "dish": "当前菜品"
+  }
+}
+```
+
+### 优化效果
+- **减少存储空间**: 删除约40%的冗余字段
+- **提高一致性**: 避免多字段存储相同信息
+- **简化维护**: 减少数据同步的复杂性
+- **提升性能**: 减少Redis存储和传输开销
+- **降低风险**: 减少隐私数据存储
 
 ## 安装依赖
 
@@ -66,26 +101,24 @@ brew services start redis
 pip install -r requirements.txt
 ```
 
-### 3. 启动服务器
+### 3. 数据迁移（可选）
+
+如果之前有用户数据，建议运行数据迁移脚本：
+
+```bash
+python migrate_data.py
+```
+
+### 4. 启动服务器
 
 ```bash
 python cooking_server.py
 ```
 
-### 4. 运行客户端
+### 5. 运行客户端
 
 ```bash
 python cooking_client.py
-```
-
-### 5. 用户统计监控
-
-```bash
-# 查看统计仪表板
-python user_stats.py
-
-# 测试动态属性统计
-python test_dynamic_stats.py
 ```
 
 ## 用户属性管理
@@ -97,19 +130,12 @@ python test_dynamic_stats.py
 - **口味偏好**: sweet（甜）、savory（咸）、spicy（辣）、sour（酸）、umami（鲜）
 - **过敏原**: 花生、海鲜、鸡蛋、牛奶、坚果、大豆、小麦等
 - **厨具设备**: 炒锅、蒸锅、烤箱、微波炉、电饭煲等
-- **用餐人数**: 1-5人
-- **食材库存**: 动态跟踪用户拥有的食材
+- **用餐人数**: 1-5人，影响食材分量计算
 
-### 智能提取
-- 从用户对话中自动识别和提取属性
-- 实时更新用户状态
-- 避免重复询问已确认的信息
-- 提供个性化推荐
-
-### 数据持久化
-- 使用Redis存储用户数据
-- 24小时自动过期
-- 支持多用户并发访问
+### 会话信息
+- **当前菜品**: 正在指导的菜品名称
+- **已确认食材**: 用户确认的食材状态（有/没有）
+- **缺少食材**: 自动从已确认食材推导得出
 
 ## 示例对话
 

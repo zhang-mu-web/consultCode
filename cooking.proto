@@ -13,10 +13,11 @@ service CookingAdvisor {
 
 // 请求消息
 message CookingRequest {
-  string query = 1;                    // 用户查询
-  int32 start = 2;                     // 开始标志 (1表示第一轮，0表示后续轮次)
-  repeated ConversationItem conversation_history = 3;  // 对话历史
-  map<string, string> extracted_data = 4;  // 已提取的信息
+  string user_id = 1;                  // 用户ID
+  string query = 2;                    // 用户查询
+  int32 start = 3;                     // 开始标志 (1表示第一轮，0表示后续轮次)
+  repeated ConversationItem conversation_history = 4;  // 对话历史
+  map<string, string> extracted_data = 5;  // 已提取的信息
 }
 
 // 对话项

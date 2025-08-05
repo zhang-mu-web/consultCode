@@ -11,7 +11,7 @@ def quick_view():
     """快速查看数据库内容"""
     try:
         # 连接Redis
-        r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+        r = redis.Redis(host='localhost', port=6379, db=1, decode_responses=True)
         r.ping()
         print("✅ 成功连接到Redis")
     except:

@@ -1,10 +1,11 @@
 import grpc
 import json
 import time
+import uuid
 
 # 导入生成的gRPC代码
-import cooking_pb2
-import cooking_pb2_grpc
+import cooking_pb2 as cooking_pb2
+import cooking_pb2_grpc as cooking_pb2_grpc
 
 class CookingClient:
     """做菜咨询客户端"""
@@ -14,12 +15,15 @@ class CookingClient:
         self.stub = cooking_pb2_grpc.CookingAdvisorStub(self.channel)
         self.conversation_history = []
         self.extracted_data = {}
+        # 生成稳定的用户ID
+        self.user_id = f"user_{uuid.uuid4().hex[:8]}"
     
     def get_cooking_advice(self, query, start=0):
         """获取做菜建议"""
         try:
             # 构建请求
             request = cooking_pb2.CookingRequest(
+                user_id=self.user_id,  # 添加用户ID
                 query=query,
                 start=start,
                 conversation_history=[
@@ -53,6 +57,7 @@ class CookingClient:
         try:
             # 构建请求
             request = cooking_pb2.CookingRequest(
+                user_id=self.user_id,  # 添加用户ID
                 query=query,
                 start=start,
                 conversation_history=[

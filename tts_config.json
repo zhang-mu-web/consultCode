@@ -1,0 +1,37 @@
+{
+  "tts_service": {
+    "endpoint": "192.168.2.109:50051",
+    "timeout": 30,
+    "retry_count": 3
+  },
+  "downlink_service": {
+    "endpoint": "192.168.2.88:50055",
+    "timeout": 30,
+    "retry_count": 3
+  },
+  "audio_params": {
+    "sample_rate": 16000,
+    "channels": 1,
+    "bit_depth": 16,
+    "frame_size": 960
+  },
+  "voice_params": {
+    "default_voice_id": "1",
+    "default_language": "zh",
+    "device_type": "cooking"
+  },
+  "user_config": {
+    "default_user_id": "cooking_user_001",
+    "default_device_id": "cooking_device_001"
+  },
+  "features": {
+    "enable_tts": true,
+    "enable_streaming": true,
+    "enable_task_cancellation": true,
+    "auto_play_ai_response": true
+  },
+  "logging": {
+    "level": "INFO",
+    "format": "%(asctime)s - %(levelname)s - %(message)s"
+  }
+} 

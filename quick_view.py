@@ -55,7 +55,13 @@ def quick_view():
                     user_data = json.loads(data)
                     print(f"\n  📝 {key}:")
                     for k, v in user_data.items():
-                        if isinstance(v, dict):
+                        if k == "learned_dishes":
+                            # 特殊处理已学会的菜品字段
+                            if v:
+                                print(f"    {k}: {v}")
+                            else:
+                                print(f"    {k}: [] (空)")
+                        elif isinstance(v, dict):
                             print(f"    {k}: {json.dumps(v, ensure_ascii=False)}")
                         else:
                             print(f"    {k}: {v}")

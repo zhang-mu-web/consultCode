@@ -14,10 +14,11 @@ service CookingAdvisor {
 // 请求消息
 message CookingRequest {
   string user_id = 1;                  // 用户ID
-  string query = 2;                    // 用户查询
-  int32 start = 3;                     // 开始标志 (1表示第一轮，0表示后续轮次)
-  repeated ConversationItem conversation_history = 4;  // 对话历史
-  map<string, string> extracted_data = 5;  // 已提取的信息
+  string voice_id = 2;                 // 语音ID（用于TTS播报）
+  string query = 3;                    // 用户查询
+  int32 start = 4;                     // 开始标志 (1表示第一轮，0表示后续轮次)
+  repeated ConversationItem conversation_history = 5;  // 对话历史
+  map<string, string> extracted_data = 6;  // 已提取的信息
 }
 
 // 对话项

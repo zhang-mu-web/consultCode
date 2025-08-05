@@ -1,0 +1,217 @@
+syntax = "proto3";
+
+package com.bysx.downlink;
+
+option java_multiple_files = true;
+option java_package = "com.bysx.downlink.grpc";
+option java_outer_classname = "DownlinkProto";
+
+// 任务优先级枚举
+enum TaskPriority {
+  // 未指定优先级（默认值）
+  PRIORITY_UNSPECIFIED = 0;
+  
+  // 最高优先级（紧急任务）
+  PRIORITY_HIGHEST = 1;
+  
+  // 高优先级（重要任务）
+  PRIORITY_HIGH = 2;
+  
+  // 中高优先级
+  PRIORITY_MEDIUM_HIGH = 3;
+  
+  // 中等优先级（普通任务）
+  PRIORITY_MEDIUM = 4;
+  
+  // 中低优先级
+  PRIORITY_MEDIUM_LOW = 5;
+  
+  // 低优先级（非紧急任务）
+  PRIORITY_LOW = 6;
+  
+  // 最低优先级（后台任务）
+  PRIORITY_LOWEST = 7;
+}
+
+// 下行链路服务
+service DownlinkService {
+  // 发送PCM音频消息
+  rpc SendAudioMessage(AudioMessageRequest) returns (SimpleResponse);
+  
+  // 流式发送PCM音频消息（客户端流式）
+  rpc StreamAudioMessage(stream StreamAudioMessageRequest) returns (SimpleResponse);
+  
+  // 发送文本消息
+  rpc SendTextMessage(TextMessageRequest) returns (SimpleResponse);
+  
+  // 取消任务
+  rpc CancelTask(CancelTaskRequest) returns (SimpleResponse);
+
+  // 健康检查
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// PCM音频消息请求
+message AudioMessageRequest {
+  // 设备ID
+  string device_id = 1;
+  
+  // 用户ID
+  string user_id = 2;
+  
+  // PCM音频数据
+  bytes audio_data = 3;
+  
+  // 音频采样率
+  int32 sample_rate = 4;
+  
+  // 音频通道数
+  int32 channels = 5;
+  
+  // 音频位深度
+  int32 bit_depth = 6;
+  
+  // 任务ID
+  string task_id = 7;
+  
+  // 任务优先级
+  TaskPriority priority = 8;
+  
+  // 是否为音频结束标志
+  bool is_end = 9;
+}
+
+// 流式PCM音频消息请求
+message StreamAudioMessageRequest {
+  // 设备ID
+  string device_id = 1;
+  
+  // 用户ID
+  string user_id = 2;
+  
+  // PCM音频数据
+  bytes audio_data = 3;
+  
+  // 音频采样率
+  int32 sample_rate = 4;
+  
+  // 音频通道数
+  int32 channels = 5;
+  
+  // 音频位深度
+  int32 bit_depth = 6;
+  
+  // 任务ID
+  string task_id = 7;
+  
+  // 任务优先级
+  TaskPriority priority = 8;
+  
+  // 音频序号（从0开始，用于保证流式传输的顺序）
+  int32 sequence_number = 9;
+  
+  // 是否为音频结束标志
+  bool is_end = 10;
+  
+  // 流式会话ID（用于标识同一个流式传输会话）
+  string stream_session_id = 11;
+}
+
+// 文本消息请求
+message TextMessageRequest {
+  // 设备ID
+  string device_id = 1;
+  
+  // 用户ID
+  string user_id = 2;
+  
+  // 文本内容
+  string text_content = 3;
+  
+  // 任务ID
+  string task_id = 4;
+  
+  // 任务优先级
+  TaskPriority priority = 5;
+}
+
+// 取消任务请求
+message CancelTaskRequest {
+  // 设备ID
+  string device_id = 1;
+  
+  // 用户ID
+  string user_id = 2;
+  
+  // 任务ID（可选）
+  optional string task_id = 3;
+}
+
+// 简单响应（成功/失败）
+message SimpleResponse {
+  // 是否成功
+  bool success = 1;
+  
+  // 错误消息（失败时）
+  string error_message = 2;
+  
+  // 响应消息
+  string message = 3;
+}
+
+// 健康检查请求
+message HealthCheckRequest {
+  // 客户端标识
+  string client_id = 1;
+}
+
+// 批量预约任务请求
+message BatchScheduleRequest {
+  // 设备ID
+  string device_id = 1;
+  
+  // 用户ID
+  string user_id = 2;
+  
+  // 目标任务数量
+  int32 target_task_count = 3;
+  
+  // 延迟时间（毫秒）
+  optional int32 delay_ms = 4;
+  
+  // 任务间隔时间（毫秒）
+  optional int32 interval_ms = 5;
+  
+  // 缓冲任务数
+  optional int32 buffer_task_count = 6;
+  
+  // 最小延迟时间（毫秒）
+  optional int32 min_delay_ms = 7;
+  
+  // 任务优先级
+  TaskPriority priority = 8;
+}
+
+// 批量预约任务响应
+message BatchScheduleResponse {
+  // 是否成功
+  bool success = 1;
+  
+  // 实际添加的任务数量
+  int32 added_task_count = 2;
+  
+  // 当前队列中的任务数量
+  int32 current_task_count = 3;
+  
+  // 错误消息（失败时）
+  string error_message = 4;
+}
+
+// 健康检查响应
+message HealthCheckResponse {
+  // 服务状态
+  bool healthy = 1;
+  
+  // 服务版本
+  string version = 2;
+} 

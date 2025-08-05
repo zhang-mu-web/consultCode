@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\rcooking.proto\x12\x07\x63ooking\"\xf2\x01\n\x0e\x43ookingRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\r\n\x05query\x18\x02 \x01(\t\x12\r\n\x05start\x18\x03 \x01(\x05\x12\x37\n\x14\x63onversation_history\x18\x04 \x03(\x0b\x32\x19.cooking.ConversationItem\x12\x42\n\x0e\x65xtracted_data\x18\x05 \x03(\x0b\x32*.cooking.CookingRequest.ExtractedDataEntry\x1a\x34\n\x12\x45xtractedDataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"1\n\x10\x43onversationItem\x12\x0c\n\x04role\x18\x01 \x01(\t\x12\x0f\n\x07\x63ontent\x18\x02 \x01(\t\"\xb4\x01\n\x0f\x43ookingResponse\x12\x16\n\x0ephase_response\x18\x01 \x01(\t\x12\x43\n\x0e\x65xtracted_info\x18\x02 \x03(\x0b\x32+.cooking.CookingResponse.ExtractedInfoEntry\x12\x0e\n\x06status\x18\x03 \x01(\t\x1a\x34\n\x12\x45xtractedInfoEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x32\xaa\x01\n\x0e\x43ookingAdvisor\x12G\n\x10GetCookingAdvice\x12\x17.cooking.CookingRequest\x1a\x18.cooking.CookingResponse\"\x00\x12O\n\x16GetCookingAdviceStream\x12\x17.cooking.CookingRequest\x1a\x18.cooking.CookingResponse\"\x00\x30\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\rcooking.proto\x12\x07\x63ooking\"\x84\x02\n\x0e\x43ookingRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x10\n\x08voice_id\x18\x02 \x01(\t\x12\r\n\x05query\x18\x03 \x01(\t\x12\r\n\x05start\x18\x04 \x01(\x05\x12\x37\n\x14\x63onversation_history\x18\x05 \x03(\x0b\x32\x19.cooking.ConversationItem\x12\x42\n\x0e\x65xtracted_data\x18\x06 \x03(\x0b\x32*.cooking.CookingRequest.ExtractedDataEntry\x1a\x34\n\x12\x45xtractedDataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"1\n\x10\x43onversationItem\x12\x0c\n\x04role\x18\x01 \x01(\t\x12\x0f\n\x07\x63ontent\x18\x02 \x01(\t\"\xb4\x01\n\x0f\x43ookingResponse\x12\x16\n\x0ephase_response\x18\x01 \x01(\t\x12\x43\n\x0e\x65xtracted_info\x18\x02 \x03(\x0b\x32+.cooking.CookingResponse.ExtractedInfoEntry\x12\x0e\n\x06status\x18\x03 \x01(\t\x1a\x34\n\x12\x45xtractedInfoEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x32\xaa\x01\n\x0e\x43ookingAdvisor\x12G\n\x10GetCookingAdvice\x12\x17.cooking.CookingRequest\x1a\x18.cooking.CookingResponse\"\x00\x12O\n\x16GetCookingAdviceStream\x12\x17.cooking.CookingRequest\x1a\x18.cooking.CookingResponse\"\x00\x30\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -36,15 +36,15 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_COOKINGRESPONSE_EXTRACTEDINFOENTRY']._loaded_options = None
   _globals['_COOKINGRESPONSE_EXTRACTEDINFOENTRY']._serialized_options = b'8\001'
   _globals['_COOKINGREQUEST']._serialized_start=27
-  _globals['_COOKINGREQUEST']._serialized_end=269
-  _globals['_COOKINGREQUEST_EXTRACTEDDATAENTRY']._serialized_start=217
-  _globals['_COOKINGREQUEST_EXTRACTEDDATAENTRY']._serialized_end=269
-  _globals['_CONVERSATIONITEM']._serialized_start=271
-  _globals['_CONVERSATIONITEM']._serialized_end=320
-  _globals['_COOKINGRESPONSE']._serialized_start=323
-  _globals['_COOKINGRESPONSE']._serialized_end=503
-  _globals['_COOKINGRESPONSE_EXTRACTEDINFOENTRY']._serialized_start=451
-  _globals['_COOKINGRESPONSE_EXTRACTEDINFOENTRY']._serialized_end=503
-  _globals['_COOKINGADVISOR']._serialized_start=506
-  _globals['_COOKINGADVISOR']._serialized_end=676
+  _globals['_COOKINGREQUEST']._serialized_end=287
+  _globals['_COOKINGREQUEST_EXTRACTEDDATAENTRY']._serialized_start=235
+  _globals['_COOKINGREQUEST_EXTRACTEDDATAENTRY']._serialized_end=287
+  _globals['_CONVERSATIONITEM']._serialized_start=289
+  _globals['_CONVERSATIONITEM']._serialized_end=338
+  _globals['_COOKINGRESPONSE']._serialized_start=341
+  _globals['_COOKINGRESPONSE']._serialized_end=521
+  _globals['_COOKINGRESPONSE_EXTRACTEDINFOENTRY']._serialized_start=469
+  _globals['_COOKINGRESPONSE_EXTRACTEDINFOENTRY']._serialized_end=521
+  _globals['_COOKINGADVISOR']._serialized_start=524
+  _globals['_COOKINGADVISOR']._serialized_end=694
 # @@protoc_insertion_point(module_scope)

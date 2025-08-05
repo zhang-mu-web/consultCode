@@ -9,10 +9,15 @@ import json
 import requests
 import jinja2
 import os
+import asyncio
+import threading
 from concurrent import futures
 from user_manager import get_user_manager
 import cooking_pb2
 import cooking_pb2_grpc
+
+# 添加TTS相关导入
+from tts.tts_downlink_manager import TTSDownlinkManager, TTSFlowMode
 
 # 火山引擎豆包API配置
 ARK_ENDPOINT = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
@@ -34,6 +39,51 @@ def get_ark_api_key():
         return ''
 
 ARK_API_KEY = get_ark_api_key()
+
+# --- TTS 相关兼容处理 ---
+tts_manager = TTSDownlinkManager(tts_endpoint='192.168.2.109:50051', downlink_endpoint='192.168.2.88:50055')
+
+async def async_tts_speak_v2(text, language, user_id, voice_id="1"):
+    """异步TTS播报函数"""
+    try:
+        await tts_manager.setup_connections()
+        await tts_manager.process_tts_request(
+            text=text,
+            user_id=user_id,  # 使用传入的user_id参数
+            mode=TTSFlowMode.STREAMING,
+            voice_id=voice_id,  # 使用传入的voice_id参数
+            language=language
+        )
+    except Exception as e:
+        print(f"❌ TTS处理异常: {e}")
+    finally:
+        await tts_manager.close_connections()
+
+def tts_push_callback(event, content, language_id, msg, user_id=None, voice_id="1"):
+    """TTS播报回调函数"""
+    print(f"[TTS播报] event={event}, content={content}, lang={language_id}, msg={msg}, voice_id={voice_id}")
+    if msg:
+        if user_id is None:
+            user_id = "default"
+        def run():
+            try:
+                # 创建新的事件循环，避免阻塞主线程
+                new_loop = asyncio.new_event_loop()
+                # 设置新的事件循环
+                asyncio.set_event_loop(new_loop)
+                # 运行异步任务
+                new_loop.run_until_complete(async_tts_speak_v2(msg, language_id, user_id, voice_id))
+            except Exception as e:
+                print(f"❌ TTS播报异常: {e}")
+            finally:
+                # 确保事件循环正确关闭
+                try:
+                    if not new_loop.is_closed():
+                        new_loop.close()
+                except Exception as e:
+                    print(f"❌ 关闭事件循环异常: {e}")
+        # 启动新线程并执行异步任务
+        threading.Thread(target=run, daemon=True).start()
 
 # 移除咨询阶段相关逻辑
 
@@ -184,10 +234,18 @@ class CookingAdvisorServicer(cooking_pb2_grpc.CookingAdvisorServicer):
             
             # 简单提取菜品信息并更新用户状态
             print(f"处理用户输入: {request.query}")
-            dish_name = user_manager.extract_dish_from_text(request.query)
+            
+            # 使用智能菜品识别
+            dish_name = user_manager.smart_extract_dish(request.query, conversation_history)
             if dish_name:
                 user_manager.set_current_dish(user_id, dish_name)
-                print(f"识别菜品: {dish_name}")
+                print(f"智能识别菜品: {dish_name}")
+            else:
+                # 如果智能识别失败，尝试传统方法
+                dish_name = user_manager.extract_dish_from_text(request.query)
+                if dish_name:
+                    user_manager.set_current_dish(user_id, dish_name)
+                    print(f"传统识别菜品: {dish_name}")
             
             # 构建动态提示（包含用户上下文）
             dynamic_prompt = build_dynamic_prompt(
@@ -207,26 +265,80 @@ class CookingAdvisorServicer(cooking_pb2_grpc.CookingAdvisorServicer):
                 
                 # 检查是否是完成菜品的状态
                 current_state = response_data.get('当前状态', '')
-                if current_state == '结束关怀':
-                    # 用户完成了一道菜，更新状态
-                    # 尝试从对话历史中提取菜品名称
+                
+                # 尝试智能完成菜品（无论当前状态如何）
+                smart_completed = user_manager.smart_complete_dish(user_id, conversation_history, request.query)
+                
+                # 如果智能完成失败，使用传统方法
+                if not smart_completed:
+                    # 扩展完成菜品的触发条件
+                    should_complete_dish = False
                     completed_dish = ""
-                    if conversation_history:
-                        # 从最近的对话中寻找菜品名称
-                        for item in reversed(conversation_history[-5:]):  # 检查最近5条对话
-                            if item['role'] == 'user':
-                                dish_name = user_manager.extract_dish_from_text(item['content'])
-                                if dish_name:
-                                    completed_dish = dish_name
-                                    break
                     
-                    user_manager.complete_dish(user_id, completed_dish)
+                    # 条件1: 传统"结束关怀"状态
+                    if current_state == '结束关怀':
+                        should_complete_dish = True
+                    
+                    # 条件2: 用户表达完成或满意的状态
+                    elif current_state in ['完成总结', '问题解决']:
+                        # 检查用户输入是否包含完成相关的关键词
+                        completion_keywords = ['完成', '好了', '做完了', '成功了', '味道不错', '很好吃', '满意', '谢谢']
+                        user_query_lower = request.query.lower()
+                        if any(keyword in user_query_lower for keyword in completion_keywords):
+                            should_complete_dish = True
+                    
+                    # 条件3: 用户询问后续步骤或表示要继续
+                    elif current_state == '步骤指导':
+                        # 检查用户是否询问后续步骤或表示要继续
+                        next_step_keywords = ['接下来', '然后呢', '下一步', '继续', '还有吗', '然后做什么']
+                        user_query_lower = request.query.lower()
+                        if any(keyword in user_query_lower for keyword in next_step_keywords):
+                            should_complete_dish = True
+                    
+                    # 条件4: 用户表达困惑或需要帮助，但已经进行了主要步骤
+                    elif current_state in ['问题处理', '步骤指导']:
+                        # 检查对话历史长度，如果对话轮数较多，说明用户已经进行了主要步骤
+                        if len(conversation_history) >= 10:  # 假设10轮对话已经包含了主要步骤
+                            should_complete_dish = True
+                    
+                    # 如果满足任何完成条件，标记为已学会
+                    if should_complete_dish:
+                        # 尝试从对话历史中提取菜品名称
+                        if conversation_history:
+                            # 从最近的对话中寻找菜品名称
+                            for item in reversed(conversation_history[-5:]):  # 检查最近5条对话
+                                if item['role'] == 'user':
+                                    # 使用智能菜品识别
+                                    dish_name = user_manager.smart_extract_dish(item['content'], conversation_history)
+                                    if not dish_name:
+                                        # 如果智能识别失败，使用传统方法
+                                        dish_name = user_manager.extract_dish_from_text(item['content'])
+                                    if dish_name:
+                                        completed_dish = dish_name
+                                        break
+                        
+                        # 如果从对话历史中没有找到，尝试从当前菜品中获取
+                        if not completed_dish:
+                            user_data = user_manager.get_user(user_id)
+                            if user_data and user_data.get('current_session', {}).get('dish'):
+                                completed_dish = user_data['current_session']['dish']
+                        
+                        if completed_dish:
+                            user_manager.complete_dish(user_id, completed_dish)
+                            print(f"用户 {user_id} 完成主要步骤，标记为已学会: {completed_dish}")
+                        else:
+                            print(f"用户 {user_id} 满足完成条件，但未能识别菜品名称")
                 
                 # 提取其他信息
                 extracted_info = {}
                 for key, value in response_data.items():
                     if key != '回复':
                         extracted_info[key] = value
+                
+                # 调用TTS播报
+                language_id = "zh"  # 默认中文
+                voice_id = request.voice_id if request.voice_id else "1"  # 使用请求中的voice_id，默认为"1"
+                tts_push_callback("cooking_advice", request.query, language_id, reply, user_id, voice_id)
                 
                 # 打印用户统计信息
                 self._print_user_stats(user_id)
